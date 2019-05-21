@@ -221,7 +221,7 @@ class MyApp(QWidget):
 
     def end_convert(self):
         self.parent.statusBar.showMessage('done!!')
-        QMessageBox.information(self, "dd", "dd")
+        QMessageBox.information(self, "Done", "Done! Check your files! :)")
         self.init_everything()
 
        
