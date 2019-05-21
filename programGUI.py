@@ -1,18 +1,21 @@
 import sys
+import threading
 from fpdf import FPDF
 from pdf2image import convert_from_path
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, 
 QPushButton, QDesktopWidget, QHBoxLayout, QVBoxLayout, QGridLayout, 
-QLabel, QLineEdit, QTextEdit, QRadioButton, QFileDialog, QMessageBox, QStatusBar)
+QLabel, QLineEdit, QTextEdit, QRadioButton, QFileDialog, QMessageBox,
+QStatusBar, QProgressBar)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5.QtCore import pyqtSignal
 
 __author__ = "Chaehyeon Lee <123456ccdd@naver.com>"
 
 class MyAppMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
+        
         self.initUI()
 
     def initUI(self):
@@ -22,8 +25,6 @@ class MyAppMainWindow(QMainWindow):
         self.statusBar = QStatusBar(self)
         self.set_status_message('ready')
         self.setStatusBar(self.statusBar)
-
-
         self.setWindowTitle('PDF & IMAGE Converter')
         self.setWindowIcon(QIcon('pdf_image.png'))
         self.resize(500, 180)
@@ -39,11 +40,18 @@ class MyAppMainWindow(QMainWindow):
     def set_status_message(self, message):
         return self.statusBar.showMessage(message)
 
+    def startTH(self):
+        self.th.start()
+
 class MyApp(QWidget):
+
+    finished = pyqtSignal()
 
     def __init__(self, parent):
         super().__init__(parent)
+        self.parent = parent
 
+        self.finished.connect(self.end_convert)
         self.initUI()
 
     def initUI(self):
@@ -102,16 +110,15 @@ class MyApp(QWidget):
 
 
         ''' create convert & quit button '''
-        convert_btn = QPushButton('convert')
-        convert_btn.clicked.connect(self.convertButtonClicked)
+        self.convert_btn = QPushButton('convert')
+        self.convert_btn.clicked.connect(self.convertButtonClicked)
         quit_btn = QPushButton('quit')
-        quit_btn.clicked.connect(QCoreApplication.instance().quit)
+        quit_btn.clicked.connect(self.quit_button_click)
 
         bottomHBox = QHBoxLayout()
         bottomHBox.addStretch(5)
-        bottomHBox.addWidget(convert_btn)
+        bottomHBox.addWidget(self.convert_btn)
         bottomHBox.addWidget(quit_btn)
-        # grid.addWidget(quit_btn, 2, 2)
 
         vbox = QVBoxLayout()
         vbox.addLayout(fromHBox)
@@ -140,6 +147,7 @@ class MyApp(QWidget):
             self.isPdf = True
         else: # jpg file.
             self.isPdf = False
+
 
     # save the saveFilePath
     def radioButtonClicked(self):
@@ -183,6 +191,13 @@ class MyApp(QWidget):
             QMessageBox.about(self, "Alert", "Please select the directory first!\nClick the other button again.")
             return 
 
+        self.parent.statusBar.showMessage('converting...')
+        self.thread = threading.Thread(target=self.run_convert)
+        self.thread.start()
+        self.to_lineEdit.setReadOnly(True)
+        self.convert_btn.setEnabled(False)
+        
+    def run_convert(self):
         # convert pdf to image
         i = 1
         if self.isPdf:
@@ -201,11 +216,28 @@ class MyApp(QWidget):
             else:
                  pdf.output(self.to_lineEdit.text() + '.pdf', 'F')
         
-        QMessageBox.about(self, "Complete", "Done! Check your file and have a nice day :) ")
+        self.finished.emit()
+
+
+    def end_convert(self):
+        self.parent.statusBar.showMessage('done!!')
+        QMessageBox.information(self, "dd", "dd")
+        self.init_everything()
+
        
-        # Initiate!
+    def init_everything(self):
+         # Initiate!
         self.from_lineEdit.setText("")
         self.to_lineEdit.setText("")
+        self.convert_btn.setEnabled(True)
+        self.parent.statusBar.showMessage('ready')
+        self.to_lineEdit.setReadOnly(False)
+
+
+    def quit_button_click(self):
+        done_msg = QMessageBox().question(self, "QUIT?", "Are you sure you want to quit?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if done_msg == QMessageBox.Yes:
+            QCoreApplication.instance().quit()
 
 if __name__ == '__main__':
 
